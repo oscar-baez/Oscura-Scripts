@@ -1,56 +1,56 @@
 import matplotlib.pyplot as plt
 import concurrent.futures
-import mysql.connector
+#import mysql.connector
 import pandas as pd
 import numpy as np
 import time 
 import os 
+import sys
 import json
 import datetime
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.optimize import curve_fit
 from astropy.io import fits
-from pprint import pprint
 
 ####To run: python3 256chTool.py Multiplexed_LTA_Output_Image.fz
 
 ###If you want to make a save data in MySQL:
-def DatabaseMySQL():
-    MyDB = mysql.connector.connect(
-        host="YourLocalHost", #
-        port="YourPort",
-        user="YourUser",
-        passwd="YourPassword",
-        auth_plugin="mysql_native_password")
-    MyCursor = MyDB.cursor()
-    MyCursor.execute("CREATE DATABASE DatabaseName")
-    ###Database connection created and data table creation
-    MyDB = mysql.connector.connect(
-        host = "YourLocalHost",
-        port = "YourPort",
-        user = "YourUser",
-        passwd = "YourPassword",
-        database = "DatabaseName",
-        auth_plugin = "mysql_native_password")
-    print(MyDB)
-    MyCursor = MyDB.cursor()
-    MyCursor.execute("CREATE TABLE TableName(id INT AUTO_INCREMENT PRIMARY KEY, gain VARCHAR(255), date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+# def DatabaseMySQL():
+#     MyDB = mysql.connector.connect(
+#         host="YourLocalHost", #
+#         port="YourPort",
+#         user="YourUser",
+#         passwd="YourPassword",
+#         auth_plugin="mysql_native_password")
+#     MyCursor = MyDB.cursor()
+#     MyCursor.execute("CREATE DATABASE DatabaseName")
+#     ###Database connection created and data table creation
+#     MyDB = mysql.connector.connect(
+#         host = "YourLocalHost",
+#         port = "YourPort",
+#         user = "YourUser",
+#         passwd = "YourPassword",
+#         database = "DatabaseName",
+#         auth_plugin = "mysql_native_password")
+#     print(MyDB)
+#     MyCursor = MyDB.cursor()
+#     MyCursor.execute("CREATE TABLE TableName(id INT AUTO_INCREMENT PRIMARY KEY, gain VARCHAR(255), date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
 
 ###To save data in the table created in the database
-def SaveData(values):
-    ###Saved in rows of the ccd number and in columns of the corresponding image
-    MyDB = mysql.connector.connect(
-        host = "YourLocalHost",
-        port = "YourPassword",
-        user = "YourUser",
-        passwd = "YourPassword",
-        database = "DatabaseName",
-        auth_plugin = "mysql_native_password")
-    MyCursor = MyDB.cursor()
-    sql = "INSERT INTO TableName (gain) VALUES (%s)"
-    for v in values:            
-        MyCursor.execute(sql, (v[0],))
-    MyDB.commit()
+# def SaveData(values):
+#     ###Saved in rows of the ccd number and in columns of the corresponding image
+#     MyDB = mysql.connector.connect(
+#         host = "YourLocalHost",
+#         port = "YourPassword",
+#         user = "YourUser",
+#         passwd = "YourPassword",
+#         database = "DatabaseName",
+#         auth_plugin = "mysql_native_password")
+#     MyCursor = MyDB.cursor()
+#     sql = "INSERT INTO TableName (gain) VALUES (%s)"
+#     for v in values:            
+#         MyCursor.execute(sql, (v[0],))
+#     MyDB.commit()
 
 ###Functions in charge of calculating the multinomial distribution by searching for the peak at zero and at one.
 ###The parameters are defined: mu (mean), sigma(standard deviation), A(amplitude)
@@ -105,53 +105,53 @@ def GetSingleCCDImage(hdul,LTA_channel,ColInit,NCOL,tamy,ccdncol,NSAMP):
 ###Start of the code:
 if __name__=='__main__':
     Start_Time = time.time() ###Variable for time measurement
-    Directory='YourDirectory' ###Where is the image to be analyzed
-    Directory_Save='YourDirectorySave' ###Where to save the demultiplexed image
-    Contents = os.listdir(Directory) 
+    Directory=sys.argv[1]###Where is the image to be analyzed
+    Directory_Save=sys.argv[1]###Where to save the demultiplexed image 
     Image_CCD16=fits.HDUList([])
     gain_list=[] 
-    for Item in range(len(Contents)): ###To browse the contents of a folder with images
-        hdulist = fits.open(Directory+Contents[Item])
-        NAXIS1=int(hdulist[4].header['NAXIS1']) #Size X
-        NAXIS2=int(hdulist[4].header['NAXIS2']) #Size Y
-        NSAMP=int(hdulist[4].header['NSAMP']) #CCD's
-        NCOL=int(hdulist[4].header['NCOL']) 
-        CCDNCOL=int(hdulist[4].header['CCDNCOL'])
-        Scidata = hdulist[4].data
-        LTA_channel=4
-        CCDinMCM=16 
-        gain=[]
-        PartialImageData=[] ###List used to save the images and obtain the profits corresponding to the CCDs
-        contador=0
-        for N in range(int(NSAMP/CCDinMCM)): ###Generates N images in arrays of 16   
-            for CCD in range(CCDinMCM): ###It traverses in the number of ccd per MCM 
-                PartialImage=GetSingleCCDImage(hdulist,LTA_channel,CCD+CCDinMCM*N,NCOL,NAXIS2,CCDNCOL,NSAMP)
-                PartialImageData.append(PartialImage)
-                Image_CCD16.append(fits.ImageHDU(PartialImage))
-            ###Process of saving the new partial images
-            Directory_Demux=Directory_Save+"Demuxed_"+Contents[Item]+"/"
-            if not os.path.exists(Directory_Demux):
-                os.makedirs(Directory_Demux)
-            SaveName=str(Directory_Demux+"MCM"+str(j+1)+"_Demuxed_"+Contents[Item]+"_PROC.fits") 
-            Image_CCD16.writeto(SaveName,overwrite=True)
-            Image_CCD16.clear()
-        ###The process of obtaining the gain for NSAMP CCD is executed in parallel
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            Result = executor.map(GainSingleCCD,PartialImageData)
-        AllGain=list(result) ###List in which all gains corresponding to the processed image are stored
+
+    ##DEMUX PROCESS
+    hdulist = fits.open(Directory+Contents[Item])
+    NAXIS1=int(hdulist[4].header['NAXIS1']) #Size X
+    NAXIS2=int(hdulist[4].header['NAXIS2']) #Size Y
+    NSAMP=int(hdulist[4].header['NSAMP']) #NUMBER OF CCD's
+    NCOL=int(hdulist[4].header['NCOL']) 
+    CCDNCOL=int(hdulist[4].header['CCDNCOL'])
+    Scidata = hdulist[4].data
+    LTA_channel=4
+    CCDinMCM=16 
+    gain=[]
+    PartialImageData=[] ###List used to save the images and obtain the profits corresponding to the CCDs
+    contador=0
+    for N in range(int(NSAMP/CCDinMCM)): ###Generates N images in arrays of 16   
+        for CCD in range(CCDinMCM): ###It traverses in the number of ccd per MCM 
+            PartialImage=GetSingleCCDImage(hdulist,LTA_channel,CCD+CCDinMCM*N,NCOL,NAXIS2,CCDNCOL,NSAMP)
+            PartialImageData.append(PartialImage)
+            Image_CCD16.append(fits.ImageHDU(PartialImage))
+        ###Process of saving the new partial images
+        Directory_Demux=Directory_Save+"Demuxed_"+Contents[Item]+"/"
+        if not os.path.exists(Directory_Demux):
+            os.makedirs(Directory_Demux)
+        SaveName=str(Directory_Demux+"MCM"+str(j+1)+"_Demuxed_"+Contents[Item]+"_PROC.fits") 
+        Image_CCD16.writeto(SaveName,overwrite=True)
+        Image_CCD16.clear()
+    ###The process of obtaining the gain for NSAMP CCD is executed in parallel
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        Result = executor.map(GainSingleCCD,PartialImageData)
+    AllGain=list(Result) ###List in which all gains corresponding to the processed image are stored
+    
+    ###There are two ways to store earnings data:
+    #If you want to save the image in a .json format:
+    #CCD_AllGain = [[AllGain[_], datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")] for _ in range(len(AllGain))]
+    #with open('CCD_AllGain', 'a+') as f: json.dump(CCD_AllGain, f)  
+    #If you want to save the image in a database, as an example of MySQL
+    #DatabaseMySQL()
+    #SaveData(AllGain)      
         
-        ###There are two ways to store earnings data:
-        #If you want to save the image in a .json format:
-        #CCD_AllGain = [[AllGain[_], datetime.datetime.now().strftime("%m/%d/%Y, %H:%M:%S")] for _ in range(len(AllGain))]
-        #with open('CCD_AllGain', 'a+') as f: json.dump(CCD_AllGain, f)  
-        #If you want to save the image in a database, as an example of MySQL
-        #DatabaseMySQL()
-        #SaveData(AllGain)      
-            
-        PartialImageData.clear()    
-        hdulist.close()
-        #Filename = directorio_demux=directorio_guardado+"Histogram112.pdf"
-        #Save_Multi_Image(Filename)
+    PartialImageData.clear()    
+    hdulist.close()
+    #Filename = directorio_demux=directorio_guardado+"Histogram112.pdf"
+    #Save_Multi_Image(Filename)
     End_Time = time.time()
     Elapsed_time = End_Time - Start_Time
     print('Execution time:', Elapsed_time, 'seconds')
